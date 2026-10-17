@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Staging area for outbound shares (CrossProfileSharing). -->
+    <cache-path name="shared" path="shared/" />
+    <!-- Inbox for inbound shares (ReceiveSharedActivity). -->
+    <files-path name="received" path="received/" />
+</paths>

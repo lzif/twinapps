@@ -12,4 +12,6 @@
     <string name="dev_tests_button">Dev tests</string>
     <string name="device_admin_label">TwinApps device admin</string>
     <string name="device_admin_description">Required to create and manage the work profile that hosts your cloned apps.</string>
+    <string name="clone_section_title">Clone apps</string>
+    <string name="island_section_title">Island</string>
 </resources>

@@ -69,5 +69,51 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>
         </receiver>
+
+        <!-- M2: install session status callbacks (explicit PendingIntent delivery). -->
+        <receiver
+            android:name=".clone.InstallStatusReceiver"
+            android:exported="false" />
+
+        <!-- M5: file staging for cross-profile shares. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="io.github.lzif.twinapps.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- M5: cross-profile closure RPC endpoint. -->
+        <provider
+            android:name=".sharing.ShuttleProvider"
+            android:authorities="io.github.lzif.twinapps.shuttle"
+            android:exported="true" />
+
+        <!-- M5: cross-profile intent ferry. -->
+        <activity
+            android:name=".sharing.ShuttleCarrierActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true" />
+
+        <!-- M5: receives shares from the other profile. -->
+        <activity
+            android:name=".sharing.ReceiveSharedActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

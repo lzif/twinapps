@@ -20,11 +20,11 @@ any existing app was referenced or reused.
 
 ## Roadmap
 
-- [ ] **M1 - Provisioning:** create the work profile (setup wizard)
-- [ ] **M2 - Clone:** install app copies into the profile
-- [ ] **M3 - Launcher:** badged shortcuts for cloned apps
-- [ ] **M4 - Freeze:** suspend/unfreeze apps without uninstalling
-- [ ] **M5 - Sharing:** file/intent sharing across profiles
+- [x] **M1 - Provisioning:** create the work profile (setup wizard)
+- [x] **M2 - Clone:** install app copies into the profile
+- [x] **M3 - Launcher:** badged shortcuts for cloned apps
+- [x] **M4 - Freeze:** suspend/unfreeze apps without uninstalling
+- [x] **M5 - Sharing:** file/intent sharing across profiles
 
 ## Building
 

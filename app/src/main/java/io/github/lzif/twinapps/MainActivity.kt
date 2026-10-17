@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import io.github.lzif.twinapps.databinding.ActivityMainBinding
+import io.github.lzif.twinapps.dev.DevTestActivity
 import io.github.lzif.twinapps.provisioning.ProfileLauncherSetup
 import io.github.lzif.twinapps.provisioning.ProfileUsers
 import io.github.lzif.twinapps.provisioning.ProvisioningActivity
@@ -45,6 +46,9 @@ class MainActivity : AppCompatActivity() {
         }
         binding.quietButton.setOnClickListener { toggleQuietMode() }
         binding.destroyButton.setOnClickListener { destroyProfile() }
+        binding.devTestsButton.setOnClickListener {
+            startActivity(Intent(this, DevTestActivity::class.java))
+        }
 
         refreshUi()
     }
@@ -69,6 +73,7 @@ class MainActivity : AppCompatActivity() {
         val managementVisibility = if (provisioned) View.VISIBLE else View.GONE
         binding.quietButton.visibility = managementVisibility
         binding.destroyButton.visibility = managementVisibility
+        binding.devTestsButton.visibility = managementVisibility
         if (provisioned) {
             binding.quietButton.text = getString(
                 if (profileUsers.isQuietModeEnabled()) R.string.quiet_disable

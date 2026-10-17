@@ -70,6 +70,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- Dev-only test screen for M2-M5 (not product UI). -->
+        <activity
+            android:name=".dev.DevTestActivity"
+            android:exported="false" />
+
         <!-- M2: install session status callbacks (explicit PendingIntent delivery). -->
         <receiver
             android:name=".clone.InstallStatusReceiver"

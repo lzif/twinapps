@@ -9,6 +9,7 @@
     <string name="quiet_failed">Could not change quiet mode.</string>
     <string name="destroy_button">Destroy work profile</string>
     <string name="destroy_unavailable">Destroy is only available inside the work profile. Otherwise remove it via system Settings, Accounts.</string>
+    <string name="dev_tests_button">Dev tests</string>
     <string name="device_admin_label">TwinApps device admin</string>
     <string name="device_admin_description">Required to create and manage the work profile that hosts your cloned apps.</string>
 </resources>

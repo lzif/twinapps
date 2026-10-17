@@ -108,7 +108,7 @@ class OwnerSessionInstaller(private val context: Context) {
         params.setAppLabel(appLabel)
         params.setOriginatingUid(originatingUid)
         params.setInstallReason(INSTALL_REASON_UNKNOWN)
-        params.sizeBytes = apkPaths.sumOf { File(it).length() }
+        params.setSize(apkPaths.sumOf { File(it).length() })
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         }

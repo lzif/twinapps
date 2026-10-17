@@ -251,21 +251,15 @@ class ProvisioningManager(private val context: Context) {
         }
     }
 
-    /** API 29+: grants this app the overlay AppOp when it cannot draw overlays. */
+    /**
+     * API 29+: the overlay AppOp cannot be granted programmatically through
+     * public APIs (AppOpsManager.setMode is hidden and needs a signature
+     * permission), so this only verifies and logs guidance for the user.
+     */
     private fun grantSelfOverlayAppOp() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        if (Settings.canDrawOverlays(context)) return
-        val appOps = context.getSystemService(AppOpsManager::class.java)
-        try {
-            appOps.setMode(
-                AppOpsManager.OP_SYSTEM_ALERT_WINDOW,
-                Process.myUid(),
-                context.packageName,
-                AppOpsManager.MODE_ALLOWED
-            )
-            Log.i(TAG, "Granted self overlay AppOp")
-        } catch (e: Exception) {
-            Log.w(TAG, "setMode for overlay AppOp failed", e)
+        if (!Settings.canDrawOverlays(context)) {
+            Log.w(TAG, "Overlay permission missing; enable 'Display over other apps' for TwinApps in Settings")
         }
     }
 

@@ -13,7 +13,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // TODO: main screen — list personal-profile apps on one tab,
+        // TODO: main screen - list personal-profile apps on one tab,
         // work-profile apps on the other. See spec section 7 (App inventory).
         binding.statusText.text = getString(R.string.status_not_provisioned)
     }

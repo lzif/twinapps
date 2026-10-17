@@ -12,6 +12,6 @@ import android.content.Intent
 class TwinAppsDeviceAdmin : DeviceAdminReceiver() {
 
     override fun onProfileProvisioningComplete(context: Context, intent: Intent) {
-        // TODO: post-provisioning setup — see spec section 1.
+        // TODO: post-provisioning setup - see spec section 1.
     }
 }

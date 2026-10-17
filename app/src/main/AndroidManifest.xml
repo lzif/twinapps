@@ -13,14 +13,32 @@
 
         <activity
             android:name=".MainActivity"
+            android:exported="true" />
+
+        <!-- One launcher entry per side; ProfileLauncherSetup enables the
+             right one. The work alias starts disabled so a fresh install on
+             the parent shows a single icon. -->
+        <activity-alias
+            android:name=".LauncherPersonal"
+            android:targetActivity=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherWork"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
-        <!-- Handles ACTION_PROVISION_MANAGED_PROFILE during setup. See spec section 1. -->
+        <!-- Drives the managed-profile setup flow. -->
         <activity
             android:name=".provisioning.ProvisioningActivity"
             android:exported="true">
@@ -29,6 +47,15 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Detects manual (adb) provisioning. -->
+        <receiver
+            android:name=".provisioning.ManualProvisioningReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.USER_INITIALIZE" />
+            </intent-filter>
+        </receiver>
 
         <!-- Required for managed-profile provisioning via DevicePolicyManager. -->
         <receiver

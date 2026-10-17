@@ -11,4 +11,25 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/status_not_provisioned" />
+
+    <Button
+        android:id="@+id/setupButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/setup_button" />
+
+    <Button
+        android:id="@+id/quietButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/quiet_enable" />
+
+    <Button
+        android:id="@+id/destroyButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/destroy_button" />
 </LinearLayout>

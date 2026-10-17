@@ -2,6 +2,13 @@
 <resources>
     <string name="app_name">TwinApps</string>
     <string name="status_not_provisioned">Work profile not set up yet.</string>
+    <string name="status_provisioned">Work profile is ready.</string>
+    <string name="setup_button">Set up work profile</string>
+    <string name="quiet_enable">Turn quiet mode on</string>
+    <string name="quiet_disable">Turn quiet mode off</string>
+    <string name="quiet_failed">Could not change quiet mode.</string>
+    <string name="destroy_button">Destroy work profile</string>
+    <string name="destroy_unavailable">Destroy is only available inside the work profile. Otherwise remove it via system Settings, Accounts.</string>
     <string name="device_admin_label">TwinApps device admin</string>
     <string name="device_admin_description">Required to create and manage the work profile that hosts your cloned apps.</string>
 </resources>

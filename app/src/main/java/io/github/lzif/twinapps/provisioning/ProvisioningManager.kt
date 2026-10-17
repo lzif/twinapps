@@ -42,20 +42,32 @@ class ProvisioningManager(private val context: Context) {
      * True when provisioning completed. Each side (parent profile and managed
      * profile) records its own completion; the parent additionally recovers
      * when a managed profile exists but was never recorded (for example after
-     * manual adb provisioning).
+     * manual adb provisioning), and resets stale state when the recorded
+     * profile no longer exists (removed via system Settings or wiped).
      */
     fun isProvisioned(): Boolean {
-        if (state.isDone()) return true
+        if (state.isDone()) {
+            if (!isProfileOwner() && !hasManagedProfile()) {
+                Log.i(TAG, "State is done but no managed profile exists; resetting")
+                state.reset()
+                return false
+            }
+            return true
+        }
         if (!isProfileOwner()) {
-            val um = context.getSystemService(UserManager::class.java)
-            val hasExtraProfile = um.userProfiles.any { it != Process.myUserHandle() }
-            if (hasExtraProfile) {
+            if (hasManagedProfile()) {
                 Log.i(TAG, "Managed profile exists without recorded state; marking done")
                 state.markDone(ProvisionType.MANUAL)
                 return true
             }
         }
         return false
+    }
+
+    /** Parent side: true when a profile other than the current user exists. */
+    private fun hasManagedProfile(): Boolean {
+        val um = context.getSystemService(UserManager::class.java) ?: return false
+        return um.userProfiles.any { it != Process.myUserHandle() }
     }
 
     /**

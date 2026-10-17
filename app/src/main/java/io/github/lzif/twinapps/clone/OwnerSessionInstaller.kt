@@ -104,10 +104,10 @@ class OwnerSessionInstaller(private val context: Context) {
     ): CloneResult {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-        params.appPackageName = packageName
-        params.appLabel = appLabel
-        params.originatingUid = originatingUid
-        params.installReason = INSTALL_REASON_UNKNOWN
+        params.setAppPackageName(packageName)
+        params.setAppLabel(appLabel)
+        params.setOriginatingUid(originatingUid)
+        params.setInstallReason(INSTALL_REASON_UNKNOWN)
         params.sizeBytes = apkPaths.sumOf { File(it).length() }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)

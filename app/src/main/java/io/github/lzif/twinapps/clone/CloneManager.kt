@@ -3,6 +3,8 @@ package io.github.lzif.twinapps.clone
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.net.Uri
+import android.os.Parcel
+import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
 
@@ -43,13 +45,13 @@ class CloneManager(private val context: Context) {
      * Installs [packageName] as a fresh copy into [targetUserId].
      */
     fun cloneToProfile(packageName: String, targetUserId: Int): CloneResult {
-        if (targetUserId == UserHandle.myUserId()) {
+        if (targetUserId == UserHandle.getUserId(Process.myUid())) {
             return CloneResult.Failure("Target user is the current user; nothing to clone.")
         }
         if (ShizukuCompat.isUsable()) {
             return ShizukuCloneWorker.installExistingPackage(packageName, targetUserId)
         }
-        if (isOwner() && UserHandle.myUserId() == targetUserId) {
+        if (isOwner() && UserHandle.getUserId(Process.myUid()) == targetUserId) {
             return sessionInstaller.installExistingApp(packageName)
         }
         return CloneResult.Failure(
@@ -66,7 +68,7 @@ class CloneManager(private val context: Context) {
     fun installApkIntoProfile(apkPath: String): CloneResult {
         val targetUserId = resolveWorkProfileUserId()
             ?: return CloneResult.Failure("No work profile found. Set up the work profile first (M1).")
-        if (!isOwner() || UserHandle.myUserId() != targetUserId) {
+        if (!isOwner() || UserHandle.getUserId(Process.myUid()) != targetUserId) {
             return CloneResult.Failure(
                 "APK install must run inside the work profile as profile/device owner."
             )
@@ -78,7 +80,7 @@ class CloneManager(private val context: Context) {
     fun installApkIntoProfile(apkUri: Uri): CloneResult {
         val targetUserId = resolveWorkProfileUserId()
             ?: return CloneResult.Failure("No work profile found. Set up the work profile first (M1).")
-        if (!isOwner() || UserHandle.myUserId() != targetUserId) {
+        if (!isOwner() || UserHandle.getUserId(Process.myUid()) != targetUserId) {
             return CloneResult.Failure(
                 "APK install must run inside the work profile as profile/device owner."
             )
@@ -90,13 +92,13 @@ class CloneManager(private val context: Context) {
     fun removeFromProfile(packageName: String): CloneResult {
         val targetUserId = resolveWorkProfileUserId()
             ?: return CloneResult.Failure("No work profile found.")
-        if (targetUserId == UserHandle.myUserId()) {
+        if (targetUserId == UserHandle.getUserId(Process.myUid())) {
             return CloneResult.Failure("Target user is the current user.")
         }
         if (ShizukuCompat.isUsable()) {
             return ShizukuCloneWorker.uninstall(packageName, targetUserId)
         }
-        if (isOwner() && UserHandle.myUserId() == targetUserId) {
+        if (isOwner() && UserHandle.getUserId(Process.myUid()) == targetUserId) {
             return sessionInstaller.uninstall(packageName)
         }
         return CloneResult.Failure(
@@ -107,13 +109,18 @@ class CloneManager(private val context: Context) {
 
     /**
      * Resolves the managed (work) profile user id, or null when there is none.
+     *
+     * Android allows at most one managed profile per user, so the work
+     * profile is the first profile entry that is not the current user.
+     * UserHandle exposes no public int accessor, so the id is read from its
+     * parcel form (a single int, stable across platform versions).
      */
     fun resolveWorkProfileUserId(): Int? {
         val um = context.getSystemService(UserManager::class.java) ?: return null
-        val myId = UserHandle.myUserId()
+        val myId = UserHandle.getUserId(Process.myUid())
         return um.userProfiles
-            .map { it.identifier }
-            .firstOrNull { it != myId && UserManager.isManagedProfile(it) }
+            .map { it.toUserId() }
+            .firstOrNull { it != myId }
     }
 
     /**
@@ -122,13 +129,13 @@ class CloneManager(private val context: Context) {
      */
     fun resolveCloneTargets(): List<CloneTarget> {
         val um = context.getSystemService(UserManager::class.java) ?: return emptyList()
-        val myId = UserHandle.myUserId()
+        val myId = UserHandle.getUserId(Process.myUid())
         val targets = mutableListOf(
             CloneTarget(userId = myId, displayName = "Mainland", isParentProfile = true)
         )
         um.userProfiles
-            .map { it.identifier }
-            .filter { it != myId && UserManager.isManagedProfile(it) }
+            .map { it.toUserId() }
+            .filter { it != myId }
             .forEachIndexed { index, id ->
                 val name = if (index == 0) "Island" else "Island ${index + 1}"
                 targets.add(CloneTarget(userId = id, displayName = name, isParentProfile = false))
@@ -140,5 +147,20 @@ class CloneManager(private val context: Context) {
         val dpm = context.getSystemService(DevicePolicyManager::class.java) ?: return false
         val pkg = context.packageName
         return dpm.isProfileOwnerApp(pkg) || dpm.isDeviceOwnerApp(pkg)
+    }
+
+    /**
+     * UserHandle exposes no public int accessor; its parcel form is a single
+     * int holding the user id, stable across platform versions.
+     */
+    private fun UserHandle.toUserId(): Int {
+        val p = Parcel.obtain()
+        try {
+            writeToParcel(p, 0)
+            p.setDataPosition(0)
+            return p.readInt()
+        } finally {
+            p.recycle()
+        }
     }
 }

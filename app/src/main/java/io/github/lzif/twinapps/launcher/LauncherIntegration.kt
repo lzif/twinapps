@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
+import android.os.Parcel
 import android.os.UserHandle
 
 /**
@@ -40,8 +41,8 @@ class LauncherIntegration(private val context: Context) {
         val shortcut = buildShortcut(packageName, profileUser) ?: return false
         val manager = shortcutManager() ?: return false
         if (!manager.isRequestPinShortcutSupported) return false
-        manager.requestPin(shortcut)
-        store.add(profileUser.identifier, packageName)
+        manager.requestPinShortcut(shortcut, null)
+        store.add(profileUser.toUserId(), packageName)
         return true
     }
 
@@ -52,8 +53,8 @@ class LauncherIntegration(private val context: Context) {
     fun removeShortcut(packageName: String) {
         val profileUser = context.islandUserHandle() ?: return
         val manager = shortcutManager() ?: return
-        manager.disableShortcuts(listOf(shortcutId(profileUser.identifier, packageName)))
-        store.remove(profileUser.identifier, packageName)
+        manager.disableShortcuts(listOf(shortcutId(profileUser.toUserId(), packageName)))
+        store.remove(profileUser.toUserId(), packageName)
     }
 
     /**
@@ -81,7 +82,7 @@ class LauncherIntegration(private val context: Context) {
         val manager = shortcutManager() ?: return
         val pinnedIds = manager.pinnedShortcuts.map { it.id }.toSet()
         for ((userId, packageName) in store.all()) {
-            if (userId != profileUser.identifier) continue
+            if (userId != profileUser.toUserId()) continue
             val id = shortcutId(userId, packageName)
             if (!isInstalled(packageName)) {
                 manager.disableShortcuts(listOf(id))
@@ -91,7 +92,7 @@ class LauncherIntegration(private val context: Context) {
             if (!pinnedIds.contains(id)) {
                 val shortcut = buildShortcut(packageName, profileUser) ?: continue
                 if (manager.isRequestPinShortcutSupported) {
-                    manager.requestPin(shortcut)
+                    manager.requestPinShortcut(shortcut, null)
                 }
             }
         }
@@ -104,7 +105,7 @@ class LauncherIntegration(private val context: Context) {
     fun hasShortcut(packageName: String): Boolean {
         val profileUser = context.islandUserHandle() ?: return false
         val manager = shortcutManager() ?: return false
-        val id = shortcutId(profileUser.identifier, packageName)
+        val id = shortcutId(profileUser.toUserId(), packageName)
         return manager.pinnedShortcuts.any { it.id == id }
     }
 
@@ -131,7 +132,7 @@ class LauncherIntegration(private val context: Context) {
         val icon = badgedLauncherIcon(pm, appInfo, profileUser, context)
         val label = pm.getUserBadgedLabel(pm.getApplicationLabel(appInfo), profileUser)
 
-        return ShortcutInfo.Builder(context, shortcutId(profileUser.identifier, packageName))
+        return ShortcutInfo.Builder(context, shortcutId(profileUser.toUserId(), packageName))
             .setShortLabel(label)
             .setLongLabel(label)
             .setIcon(icon)
@@ -154,5 +155,20 @@ class LauncherIntegration(private val context: Context) {
          */
         internal fun shortcutId(userId: Int, packageName: String): String =
             "twinapps-$userId-$packageName"
+
+        /**
+         * UserHandle exposes no public int accessor; its parcel form is a
+         * single int holding the user id, stable across platform versions.
+         */
+        internal fun UserHandle.toUserId(): Int {
+            val p = Parcel.obtain()
+            try {
+                writeToParcel(p, 0)
+                p.setDataPosition(0)
+                return p.readInt()
+            } finally {
+                p.recycle()
+            }
+        }
     }
 }

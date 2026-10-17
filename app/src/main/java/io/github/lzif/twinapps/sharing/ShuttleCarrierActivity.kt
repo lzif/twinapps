@@ -103,7 +103,7 @@ class ShuttleCarrierActivity : AppCompatActivity() {
                     putExtra(EXTRA_RESULT, result)
                 }
                 try {
-                    cpa.startActivity(back.component!!, target, this, null)
+                    cpa.startActivity(back, target, this, null)
                     delivered = true
                 } catch (e: Exception) {
                     Log.w(TAG, "Return trip to origin profile failed", e)

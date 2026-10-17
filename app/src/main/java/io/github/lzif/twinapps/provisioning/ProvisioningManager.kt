@@ -258,7 +258,7 @@ class ProvisioningManager(private val context: Context) {
         val appOps = context.getSystemService(AppOpsManager::class.java)
         try {
             appOps.setMode(
-                AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,
+                AppOpsManager.OP_SYSTEM_ALERT_WINDOW,
                 Process.myUid(),
                 context.packageName,
                 AppOpsManager.MODE_ALLOWED

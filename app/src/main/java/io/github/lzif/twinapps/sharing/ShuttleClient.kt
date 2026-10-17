@@ -126,7 +126,7 @@ object ShuttleClient {
             putExtras(intentExtras)
         }
         try {
-            cpa.startActivity(intent.component!!, targetUser, callingActivity, null)
+            cpa.startActivity(intent, targetUser, callingActivity, null)
         } catch (e: Exception) {
             Log.w(TAG, "Cross-profile carrier start failed", e)
             takeCallback(requestId)?.invoke(null)

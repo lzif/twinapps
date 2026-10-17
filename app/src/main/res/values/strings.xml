@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TwinApps</string>
+    <string name="status_not_provisioned">Work profile not set up yet.</string>
+    <string name="device_admin_label">TwinApps device admin</string>
+    <string name="device_admin_description">Required to create and manage the work profile that hosts your cloned apps.</string>
+</resources>

@@ -15,7 +15,21 @@ android {
         versionName = "0.1.0"
     }
 
+    // Fixed debug keystore (app/debug.keystore) so every CI build shares one
+    // signature and debug updates install cleanly. Debug keys are not secret.
+    signingConfigs {
+        create("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
         }

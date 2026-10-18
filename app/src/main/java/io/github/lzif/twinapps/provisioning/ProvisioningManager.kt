@@ -51,7 +51,20 @@ class ProvisioningManager(private val context: Context) {
      * flow (scoped to an explicit destroy request) instead.
      */
     fun isProvisioned(): Boolean {
-        if (state.isDone()) return true
+        if (state.isDone()) {
+            // Verify the profile actually exists when we can. The DONE flag
+            // is set optimistically on provisioning result; if the system
+            // failed to create the profile (e.g. provisioning crashed),
+            // we'd otherwise be stuck showing "ready" with no profile.
+            // Shizuku's `pm list users` is the ground truth here because
+            // UserManager.getUserProfiles() is unreliable on some devices.
+            if (!isProfileOwner() && isShizukuAvailable() && !hasManagedProfileViaShizuku()) {
+                Log.w(TAG, "DONE but Shizuku sees no managed profile; resetting stale state")
+                state.reset()
+                return false
+            }
+            return true
+        }
         if (!isProfileOwner() && !destroyRecentlyRequested() && hasManagedProfile()) {
             Log.i(TAG, "Managed profile exists without recorded state; marking done")
             state.markDone(ProvisionType.MANUAL)
@@ -71,6 +84,54 @@ class ProvisioningManager(private val context: Context) {
     /** Clears the local provisioning record (used after the profile is destroyed). */
     fun resetState() {
         state.reset()
+    }
+
+    /**
+     * Checks for stale DONE state using Shizuku as ground truth.
+     * Returns true if stale state was found and cleared.
+     */
+    fun checkAndFixStaleState(): Boolean {
+        if (!state.isDone() || isProfileOwner()) return false
+        if (!isShizukuAvailable()) return false
+        if (!hasManagedProfileViaShizuku()) {
+            Log.w(TAG, "Manual refresh: DONE but no managed profile via Shizuku; resetting")
+            state.reset()
+            return true
+        }
+        return false
+    }
+
+    private fun isShizukuAvailable(): Boolean {
+        return try {
+            io.github.lzif.twinapps.clone.ShizukuCompat.isUsable()
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun hasManagedProfileViaShizuku(): Boolean {
+        val result = io.github.lzif.twinapps.clone.ShizukuCompat.newProcess(
+            arrayOf("pm", "list", "users")
+        ) ?: return false
+        if (result.exitCode != 0) return false
+        val regex = Regex("""UserInfo\{(\d+):[^:]*:([0-9a-fA-F]+)\}""")
+        val myId = Process.myUserHandle().toUserId()
+        return regex.findAll(result.stdout).any { match ->
+            val id = match.groupValues[1].toIntOrNull() ?: return@any false
+            val flags = match.groupValues[2].toIntOrNull(16) ?: return@any false
+            id != myId && (flags and 32) != 0
+        }
+    }
+
+    private fun android.os.UserHandle.toUserId(): Int {
+        val p = android.os.Parcel.obtain()
+        try {
+            writeToParcel(p, 0)
+            p.setDataPosition(0)
+            return p.readInt()
+        } finally {
+            p.recycle()
+        }
     }
 
     /** Records that the user asked to destroy the profile. */

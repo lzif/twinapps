@@ -106,8 +106,30 @@ class MainActivity : AppCompatActivity() {
         binding.devTestsButton.setOnClickListener {
             startActivity(Intent(this, DevTestActivity::class.java))
         }
+        binding.refreshButton.setOnClickListener { refreshState() }
 
         refreshUi()
+    }
+
+    /**
+     * Manual refresh: re-checks provisioning state against ground truth.
+     * If Shizuku confirms no managed profile exists, clears stale state.
+     */
+    private fun refreshState() {
+        toast("Refreshing...")
+        Thread {
+            val hadStaleState = provisioningManager.checkAndFixStaleState()
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) {
+                    refreshUi()
+                    if (hadStaleState) {
+                        toast("Stale state cleared. Set up the work profile again.")
+                    } else {
+                        toast("Refreshed")
+                    }
+                }
+            }
+        }.start()
     }
 
     override fun onResume() {
@@ -140,6 +162,7 @@ class MainActivity : AppCompatActivity() {
         binding.quietButton.visibility = productVisibility
         binding.destroyButton.visibility = productVisibility
         binding.devTestsButton.visibility = productVisibility
+        binding.refreshButton.visibility = productVisibility
 
         if (provisioned) {
             binding.quietButton.text = getString(

@@ -88,6 +88,13 @@
             android:layout_marginTop="8dp"
             android:text="@string/dev_tests_button" />
 
+        <Button
+            android:id="@+id/refreshButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/refresh_button" />
+
         <TextView
             android:id="@+id/versionText"
             android:layout_width="wrap_content"

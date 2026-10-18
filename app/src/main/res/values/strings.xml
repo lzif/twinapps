@@ -8,11 +8,11 @@
     <string name="quiet_disable">Turn quiet mode off</string>
     <string name="quiet_failed">Could not change quiet mode.</string>
     <string name="destroy_button">Destroy work profile</string>
-    <string name="destroy_unavailable">Couldn't destroy the work profile.</string>
+    <string name="destroy_unavailable">Couldn\'t destroy the work profile.</string>
     <string name="destroy_in_progress">Destroying work profile...</string>
     <string name="destroy_done">Work profile destroyed</string>
-    <string name="destroy_no_profile">Couldn't reach the work profile. Remove it via system Settings, Accounts.</string>
-    <string name="destroy_failed_settings">Couldn't destroy it here. Remove it via system Settings, Accounts.</string>
+    <string name="destroy_no_profile">Couldn\'t reach the work profile. Remove it via system Settings, Accounts.</string>
+    <string name="destroy_failed_settings">Couldn\'t destroy it here. Remove it via system Settings, Accounts.</string>
     <string name="dev_tests_button">Dev tests</string>
     <string name="device_admin_label">TwinApps device admin</string>
     <string name="device_admin_description">Required to create and manage the work profile that hosts your cloned apps.</string>

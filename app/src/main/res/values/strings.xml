@@ -13,6 +13,9 @@
     <string name="destroy_done">Work profile destroyed</string>
     <string name="destroy_no_profile">Couldn\'t reach the work profile. Remove it via system Settings, Accounts.</string>
     <string name="destroy_failed_settings">Couldn\'t destroy it here. Remove it via system Settings, Accounts.</string>
+    <string name="destroy_confirm_title">Destroy work profile?</string>
+    <string name="destroy_confirm_message">This will permanently delete the work profile and all data in cloned apps. This cannot be undone.</string>
+    <string name="destroy_confirm_yes">Destroy</string>
     <string name="dev_tests_button">Dev tests</string>
     <string name="device_admin_label">TwinApps device admin</string>
     <string name="device_admin_description">Required to create and manage the work profile that hosts your cloned apps.</string>

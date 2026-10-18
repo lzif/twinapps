@@ -8,6 +8,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -93,7 +94,7 @@ class MainActivity : AppCompatActivity() {
         }
         setupPkgAutocomplete()
         binding.quietButton.setOnClickListener { toggleQuietMode() }
-        binding.destroyButton.setOnClickListener { destroyProfile() }
+        binding.destroyButton.setOnClickListener { confirmDestroy() }
         binding.devTestsButton.setOnClickListener {
             startActivity(Intent(this, DevTestActivity::class.java))
         }
@@ -192,15 +193,24 @@ class MainActivity : AppCompatActivity() {
 
     /** Island section: personal side reads the clone record, profile side lists its own apps. */
     private fun refreshIslandList(inProfile: Boolean) {
-        islandAdapter.rows = if (inProfile) {
-            AppInventory(this).listInstalledApps()
-                .filter { !it.isSystemApp }
-                .map { entry -> islandRow(entry.packageName, entry.label, local = true) }
-        } else {
-            cloneStore.all().map { pkg ->
+        if (!inProfile) {
+            islandAdapter.rows = cloneStore.all().map { pkg ->
                 islandRow(pkg, labelOf(pkg), local = false)
             }
+            return
         }
+        // Profile side: PackageManager queries + icon loading are slow;
+        // build the rows off the main thread.
+        Thread {
+            val rows = AppInventory(this).listInstalledApps()
+                .filter { !it.isSystemApp }
+                .map { entry -> islandRow(entry.packageName, entry.label, local = true) }
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) {
+                    islandAdapter.rows = rows
+                }
+            }
+        }.start()
     }
 
     private fun islandRow(packageName: String, label: CharSequence, local: Boolean): AppRow {
@@ -283,21 +293,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** In-memory cache: icons/labels never change between refreshes. */
+    private val labelCache = mutableMapOf<String, CharSequence>()
+    private val iconCache = mutableMapOf<String, Drawable?>()
+
     private fun labelOf(packageName: String): CharSequence {
-        return try {
-            packageManager.getApplicationLabel(
-                packageManager.getApplicationInfo(packageName, 0)
-            )
-        } catch (e: Exception) {
-            packageName
+        return labelCache.getOrPut(packageName) {
+            try {
+                packageManager.getApplicationLabel(
+                    packageManager.getApplicationInfo(packageName, 0)
+                )
+            } catch (e: Exception) {
+                packageName
+            }
         }
     }
 
     private fun iconOf(packageName: String): Drawable? {
-        return try {
-            packageManager.getApplicationIcon(packageName)
-        } catch (e: Exception) {
-            null
+        return iconCache.getOrPut(packageName) {
+            try {
+                packageManager.getApplicationIcon(packageName)
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 
@@ -313,6 +331,16 @@ class MainActivity : AppCompatActivity() {
         refreshUi()
     }
 
+    private fun confirmDestroy() {
+        if (destroyInFlight) return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.destroy_confirm_title)
+            .setMessage(R.string.destroy_confirm_message)
+            .setPositiveButton(R.string.destroy_confirm_yes) { _, _ -> destroyProfile() }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     private fun destroyProfile() {
         if (destroyInFlight) return
         if (provisioningManager.isProfileOwner()) {
@@ -322,14 +350,14 @@ class MainActivity : AppCompatActivity() {
             }
             return
         }
+        val handle = profileUsers.resolve().managedProfile
+            ?: provisioningManager.getPersistedProfileHandle()
         // Quiet mode stops the profile's processes, so the shuttle could
-        // never reach it. Turn quiet off first.
-        if (profileUsers.isQuietModeEnabled()) {
+        // never reach it. Turn quiet off first (only when we have a target).
+        if (handle != null && profileUsers.isQuietModeEnabled()) {
             toast("Turning quiet mode off to reach the work profile...")
             profileUsers.setQuietModeEnabled(false)
         }
-        val handle = profileUsers.resolve().managedProfile
-            ?: provisioningManager.getPersistedProfileHandle()
         if (handle == null) {
             // Don't silently clear state here: on devices where the profile
             // list is unreliable this branch also fires while the profile is
@@ -370,6 +398,7 @@ class MainActivity : AppCompatActivity() {
             provisioningManager.clearDestroyRequest()
             provisioningManager.resetState()
             cloneStore.clear()
+            frozen.clear()
             updateDestroyButton()
             refreshUi()
             toast(getString(R.string.destroy_done))

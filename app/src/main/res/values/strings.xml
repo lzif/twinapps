@@ -18,6 +18,7 @@
     <string name="destroy_confirm_yes">Destroy</string>
     <string name="dev_tests_button">Dev tests</string>
     <string name="refresh_button">Refresh</string>
+    <string name="shizuku_authorize">Authorize Shizuku</string>
     <string name="device_admin_label">TwinApps device admin</string>
     <string name="device_admin_description">Required to create and manage the work profile that hosts your cloned apps.</string>
     <string name="clone_section_title">Clone apps</string>

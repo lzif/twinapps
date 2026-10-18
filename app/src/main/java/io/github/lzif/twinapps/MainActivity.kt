@@ -16,6 +16,7 @@ import io.github.lzif.twinapps.clone.AppInventory
 import io.github.lzif.twinapps.clone.CloneManager
 import io.github.lzif.twinapps.clone.CloneResult
 import io.github.lzif.twinapps.clone.CloneStore
+import io.github.lzif.twinapps.clone.ShizukuCompat
 import io.github.lzif.twinapps.databinding.ActivityMainBinding
 import io.github.lzif.twinapps.dev.DevTestActivity
 import io.github.lzif.twinapps.freeze.FreezeClosure
@@ -107,8 +108,30 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, DevTestActivity::class.java))
         }
         binding.refreshButton.setOnClickListener { refreshState() }
+        binding.shizukuButton.setOnClickListener { requestShizukuPermission() }
 
         refreshUi()
+    }
+
+    /**
+     * Requests Shizuku permission via the system dialog.
+     * After granting, TwinApps appears in Shizuku's authorized apps.
+     */
+    private fun requestShizukuPermission() {
+        if (!ShizukuCompat.isBinderAlive()) {
+            toast("Shizuku is not running. Start Shizuku first.")
+            return
+        }
+        if (ShizukuCompat.isPermissionGranted()) {
+            toast("Shizuku already authorized")
+            refreshUi()
+            return
+        }
+        if (ShizukuCompat.requestPermission(SHIZUKU_REQUEST_CODE)) {
+            toast("Approve TwinApps in the Shizuku dialog")
+        } else {
+            toast("Could not request Shizuku permission")
+        }
     }
 
     /**
@@ -163,6 +186,10 @@ class MainActivity : AppCompatActivity() {
         binding.destroyButton.visibility = productVisibility
         binding.devTestsButton.visibility = productVisibility
         binding.refreshButton.visibility = productVisibility
+        // Show Shizuku authorize button when needed (binder alive, not granted).
+        binding.shizukuButton.visibility = if (provisioned &&
+            ShizukuCompat.isBinderAlive() && !ShizukuCompat.isPermissionGranted()
+        ) View.VISIBLE else View.GONE
 
         if (provisioned) {
             binding.quietButton.text = getString(
@@ -444,5 +471,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val DESTROY_VERIFY_DELAY_MS = 3000L
         private const val DESTROY_TIMEOUT_MS = 15000L
+        private const val SHIZUKU_REQUEST_CODE = 1001
     }
 }

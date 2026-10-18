@@ -40,6 +40,45 @@ object ShizukuCompat {
     }
 
     /**
+     * True when the Shizuku binder is alive (app installed, server running),
+     * regardless of whether our permission is granted.
+     */
+    fun isBinderAlive(): Boolean {
+        return try {
+            val clazz = Class.forName(SHIZUKU_CLASS)
+            clazz.getMethod("pingBinder").invoke(null) as? Boolean ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** True when Shizuku granted us permission (checkSelfPermission == GRANTED). */
+    fun isPermissionGranted(): Boolean {
+        return try {
+            val clazz = Class.forName(SHIZUKU_CLASS)
+            val permission = clazz.getMethod("checkSelfPermission").invoke(null) as? Int
+            permission == PERMISSION_GRANTED
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Triggers the Shizuku permission dialog. Call from the UI thread.
+     * After the user grants it, [isUsable] returns true.
+     */
+    fun requestPermission(requestCode: Int): Boolean {
+        return try {
+            val clazz = Class.forName(SHIZUKU_CLASS)
+            clazz.getMethod("requestPermission", Int::class.javaPrimitiveType)
+                .invoke(null, requestCode)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
      * Runs [command] as the shell user through Shizuku (`Shizuku.newProcess`).
      * Returns null when Shizuku is not available.
      */

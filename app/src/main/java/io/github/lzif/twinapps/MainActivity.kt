@@ -22,6 +22,7 @@ import io.github.lzif.twinapps.provisioning.ProfileLauncherSetup
 import io.github.lzif.twinapps.provisioning.ProfileUsers
 import io.github.lzif.twinapps.provisioning.ProvisioningActivity
 import io.github.lzif.twinapps.provisioning.ProvisioningManager
+import io.github.lzif.twinapps.provisioning.DestroyClosure
 import io.github.lzif.twinapps.sharing.ShuttleClient
 import io.github.lzif.twinapps.sharing.ShuttleResultCodec
 import io.github.lzif.twinapps.ui.AppRow
@@ -50,6 +51,9 @@ class MainActivity : AppCompatActivity() {
 
     /** Packages known-frozen on the personal side (optimistic; the profile side queries directly). */
     private val frozen = mutableSetOf<String>()
+
+    /** Guards the async destroy flow against double-taps. */
+    private var destroyInFlight = false
 
     private val setupLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -280,8 +284,75 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun destroyProfile() {
-        if (!provisioningManager.destroyProfile()) {
-            Toast.makeText(this, R.string.destroy_unavailable, Toast.LENGTH_LONG).show()
+        if (destroyInFlight) return
+        if (provisioningManager.isProfileOwner()) {
+            // Inside the profile: wipe directly.
+            if (!provisioningManager.destroyProfile()) {
+                toast(getString(R.string.destroy_unavailable))
+            }
+            return
         }
+        // Quiet mode stops the profile's processes, so the shuttle could
+        // never reach it. Turn quiet off first.
+        if (profileUsers.isQuietModeEnabled()) {
+            toast("Turning quiet mode off to reach the work profile...")
+            profileUsers.setQuietModeEnabled(false)
+        }
+        val handle = profileUsers.resolve().managedProfile
+            ?: provisioningManager.getPersistedProfileHandle()
+        if (handle == null) {
+            // Don't silently clear state here: on devices where the profile
+            // list is unreliable this branch also fires while the profile is
+            // alive, and clearing would strand the user in a setup loop.
+            toast(getString(R.string.destroy_no_profile))
+            return
+        }
+        destroyInFlight = true
+        updateDestroyButton()
+        provisioningManager.markDestroyRequested()
+        toast(getString(R.string.destroy_in_progress))
+        // Fire-and-forget: the reply may lose the race against profile
+        // teardown, so cleanup is verified independently below.
+        ShuttleClient.executeInProfile(this, handle, DestroyClosure()) { reply ->
+            val ok = runCatching { ShuttleResultCodec.unpackResult(reply) as? Boolean }.getOrNull() == true
+            if (ok) runOnUiThread { verifyDestroyCompleted() }
+        }
+        binding.root.postDelayed({ verifyDestroyCompleted() }, DESTROY_VERIFY_DELAY_MS)
+        binding.root.postDelayed({
+            if (destroyInFlight) {
+                destroyInFlight = false
+                provisioningManager.clearDestroyRequest()
+                updateDestroyButton()
+                refreshUi()
+                toast(getString(R.string.destroy_failed_settings))
+            }
+        }, DESTROY_TIMEOUT_MS)
+    }
+
+    /**
+     * Authoritative destroy verification, independent of the shuttle reply
+     * race. Idempotent: only acts while a destroy is in flight.
+     */
+    private fun verifyDestroyCompleted() {
+        if (!destroyInFlight) return
+        if (!provisioningManager.hasManagedProfile()) {
+            destroyInFlight = false
+            provisioningManager.clearDestroyRequest()
+            provisioningManager.resetState()
+            cloneStore.clear()
+            updateDestroyButton()
+            refreshUi()
+            toast(getString(R.string.destroy_done))
+        }
+        // Else: profile still visible; keep waiting for the hard timeout.
+    }
+
+    private fun updateDestroyButton() {
+        binding.destroyButton.isEnabled = !destroyInFlight
+    }
+
+    companion object {
+        private const val DESTROY_VERIFY_DELAY_MS = 3000L
+        private const val DESTROY_TIMEOUT_MS = 15000L
     }
 }

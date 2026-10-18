@@ -42,32 +42,103 @@ class ProvisioningManager(private val context: Context) {
      * True when provisioning completed. Each side (parent profile and managed
      * profile) records its own completion; the parent additionally recovers
      * when a managed profile exists but was never recorded (for example after
-     * manual adb provisioning), and resets stale state when the recorded
-     * profile no longer exists (removed via system Settings or wiped).
+     * manual adb provisioning).
+     *
+     * A DONE state is trusted unconditionally: an earlier version also reset
+     * DONE when no managed profile was visible in UserManager, but that
+     * signal proved unreliable on some devices and broke the normal
+     * post-provisioning UI. Stale states are cleaned up through the destroy
+     * flow (scoped to an explicit destroy request) instead.
      */
     fun isProvisioned(): Boolean {
-        if (state.isDone()) {
-            if (!isProfileOwner() && !hasManagedProfile()) {
-                Log.i(TAG, "State is done but no managed profile exists; resetting")
-                state.reset()
-                return false
-            }
+        if (state.isDone()) return true
+        if (!isProfileOwner() && !destroyRecentlyRequested() && hasManagedProfile()) {
+            Log.i(TAG, "Managed profile exists without recorded state; marking done")
+            state.markDone(ProvisionType.MANUAL)
+            persistProfileUserId()
             return true
         }
-        if (!isProfileOwner()) {
-            if (hasManagedProfile()) {
-                Log.i(TAG, "Managed profile exists without recorded state; marking done")
-                state.markDone(ProvisionType.MANUAL)
-                return true
-            }
+        // Scoped stale recovery: we asked for a destroy and the profile is
+        // gone — finish the cleanup the (possibly lost) callback couldn't.
+        if (state.destroyRequestedAt() > 0 && !hasManagedProfile()) {
+            Log.i(TAG, "Destroy was requested and no profile is visible; resetting state")
+            state.reset()
+            return false
         }
         return false
     }
 
+    /** Clears the local provisioning record (used after the profile is destroyed). */
+    fun resetState() {
+        state.reset()
+    }
+
+    /** Records that the user asked to destroy the profile. */
+    fun markDestroyRequested() {
+        state.markDestroyRequested()
+    }
+
+    fun clearDestroyRequest() {
+        state.clearDestroyRequest()
+    }
+
     /** Parent side: true when a profile other than the current user exists. */
-    private fun hasManagedProfile(): Boolean {
+    fun hasManagedProfile(): Boolean {
         val um = context.getSystemService(UserManager::class.java) ?: return false
         return um.userProfiles.any { it != Process.myUserHandle() }
+    }
+
+    /** Best-effort managed-profile user id, for destroy targeting. */
+    fun getPersistedProfileUserId(): Int? = state.getProfileUserId()
+
+    /**
+     * Reconstructs the managed profile's [UserHandle] from the persisted id.
+     * Used as a fallback when the live user list is unreliable. Returns null
+     * when no id was ever recorded or it matches the current user.
+     */
+    fun getPersistedProfileHandle(): android.os.UserHandle? {
+        val id = state.getProfileUserId() ?: return null
+        if (id < 0) return null
+        val p = android.os.Parcel.obtain()
+        return try {
+            p.writeInt(id)
+            p.setDataPosition(0)
+            android.os.UserHandle.CREATOR.createFromParcel(p).also { handle ->
+                if (handle == Process.myUserHandle()) return null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not reconstruct profile handle", e)
+            null
+        } finally {
+            p.recycle()
+        }
+    }
+
+    private fun destroyRecentlyRequested(): Boolean {
+        val at = state.destroyRequestedAt()
+        return at > 0 && System.currentTimeMillis() - at < DESTROY_GRACE_MS
+    }
+
+    private fun persistProfileUserId() {
+        try {
+            val um = context.getSystemService(UserManager::class.java) ?: return
+            val myHandle = Process.myUserHandle()
+            val profile = um.userProfiles.firstOrNull { it != myHandle } ?: return
+            state.setProfileUserId(profile.toUserId())
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not persist profile user id", e)
+        }
+    }
+
+    private fun android.os.UserHandle.toUserId(): Int {
+        val p = android.os.Parcel.obtain()
+        try {
+            writeToParcel(p, 0)
+            p.setDataPosition(0)
+            return p.readInt()
+        } finally {
+            p.recycle()
+        }
     }
 
     /**
@@ -98,6 +169,7 @@ class ProvisioningManager(private val context: Context) {
     fun onManagedProvisioningResult(success: Boolean) {
         if (success) {
             state.markDone(ProvisionType.MANAGED)
+            persistProfileUserId()
         } else {
             // User cancelled or provisioning failed: drop the half state.
             state.reset()
@@ -164,8 +236,8 @@ class ProvisioningManager(private val context: Context) {
             return false
         }
         return try {
-            state.reset()
             dpm.wipeData(0)
+            state.reset()
             true
         } catch (e: SecurityException) {
             Log.e(TAG, "Profile wipe failed", e)
@@ -294,6 +366,13 @@ class ProvisioningManager(private val context: Context) {
 
     companion object {
         private const val TAG = "ProvisioningManager"
+
+        /**
+         * After a destroy is requested, suppress the auto-markDone recovery
+         * for this long: a dying profile may still linger in the user list
+         * while teardown runs, and must not resurrect the DONE state.
+         */
+        private const val DESTROY_GRACE_MS = 30_000L
 
         /** Management actions resolved cross-profile; handled by later milestones. */
         const val ACTION_FREEZE_APP = "io.github.lzif.twinapps.action.FREEZE_APP"

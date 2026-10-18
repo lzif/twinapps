@@ -48,10 +48,32 @@ class ProvisioningState(context: Context) {
         prefs.edit().clear().apply()
     }
 
+    /** Records that the user asked to destroy the profile (for scoped stale recovery). */
+    fun markDestroyRequested() {
+        prefs.edit().putLong(KEY_DESTROY_REQ, System.currentTimeMillis()).apply()
+    }
+
+    fun clearDestroyRequest() {
+        prefs.edit().remove(KEY_DESTROY_REQ).apply()
+    }
+
+    fun destroyRequestedAt(): Long = prefs.getLong(KEY_DESTROY_REQ, 0L)
+
+    /** Best-effort record of the managed profile's user id (for destroy targeting). */
+    fun setProfileUserId(userId: Int) {
+        prefs.edit().putInt(KEY_PROFILE_USER_ID, userId).apply()
+    }
+
+    fun getProfileUserId(): Int? =
+        if (prefs.contains(KEY_PROFILE_USER_ID)) prefs.getInt(KEY_PROFILE_USER_ID, -1)
+        else null
+
     companion object {
         private const val PREFS_NAME = "twinapps_provisioning"
         private const val KEY_STATE = "provision.state"
         private const val KEY_TYPE = "provision.type"
+        private const val KEY_DESTROY_REQ = "provision.destroy_requested_at"
+        private const val KEY_PROFILE_USER_ID = "provision.profile_user_id"
 
         const val STATE_NONE = 0
         const val STATE_STARTED = 1

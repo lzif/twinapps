@@ -25,6 +25,10 @@ class CloneStore(context: Context) {
     fun all(): Set<String> =
         prefs.getStringSet(KEY, emptySet()).orEmpty()
 
+    fun clear() {
+        prefs.edit().remove(KEY).apply()
+    }
+
     companion object {
         private const val PREFS = "clone_store"
         private const val KEY = "cloned_packages"

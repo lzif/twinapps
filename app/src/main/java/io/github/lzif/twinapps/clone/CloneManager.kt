@@ -7,6 +7,7 @@ import android.os.Parcel
 import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
+import io.github.lzif.twinapps.provisioning.ProvisioningState
 
 /**
  * Installs copies of apps into the work profile ("cloning").
@@ -118,9 +119,42 @@ class CloneManager(private val context: Context) {
     fun resolveWorkProfileUserId(): Int? {
         val um = context.getSystemService(UserManager::class.java) ?: return null
         val myId = myUserId()
-        return um.userProfiles
+        um.userProfiles
             .map { it.toUserId() }
             .firstOrNull { it != myId }
+            ?.let { return it }
+        // Fallback 1: the live user list is unreliable on some devices;
+        // use the id recorded at provisioning time.
+        ProvisioningState(context).getProfileUserId()
+            ?.takeIf { it != myId && it >= 0 }
+            ?.let { return it }
+        // Fallback 2: ask Shizuku (shell) for the user list and find the
+        // managed profile. Works even when UserManager hides it from us.
+        return resolveViaShizuku(myId)
+    }
+
+    /**
+     * Parses `pm list users` output for a managed-profile user.
+     * Format: `UserInfo{10:Work profile:20}` where flags are HEX
+     * (0x20 = FLAG_MANAGED_PROFILE).
+     */
+    private fun resolveViaShizuku(myId: Int): Int? {
+        val result = ShizukuCompat.newProcess(arrayOf("pm", "list", "users"))
+            ?: return null
+        if (result.exitCode != 0) return null
+        val regex = Regex("""UserInfo\{(\d+):[^:]*:([0-9a-fA-F]+)\}""")
+        return regex.findAll(result.stdout)
+            .mapNotNull { match ->
+                val id = match.groupValues[1].toIntOrNull() ?: return@mapNotNull null
+                val flags = match.groupValues[2].toIntOrNull(16) ?: return@mapNotNull null
+                if (id != myId && (flags and FLAG_MANAGED_PROFILE) != 0) id else null
+            }
+            .firstOrNull()
+    }
+
+    companion object {
+        /** UserManager.FLAG_MANAGED_PROFILE = 0x00000020 */
+        private const val FLAG_MANAGED_PROFILE = 32
     }
 
     /**

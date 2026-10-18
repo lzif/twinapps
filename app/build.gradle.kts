@@ -11,8 +11,9 @@ android {
         applicationId = "io.github.lzif.twinapps"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI passes -PvCode/-PvName (GitHub run number); local builds use defaults.
+        versionCode = (findProperty("vCode") as String?)?.toIntOrNull() ?: 1
+        versionName = (findProperty("vName") as String?) ?: "0.1.0"
     }
 
     // Fixed debug keystore (app/debug.keystore) so every CI build shares one

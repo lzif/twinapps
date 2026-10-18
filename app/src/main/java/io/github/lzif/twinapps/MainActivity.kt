@@ -79,6 +79,14 @@ class MainActivity : AppCompatActivity() {
         // Keep exactly one launcher entry visible per side.
         ProfileLauncherSetup.sync(this)
 
+        // Show the build version so testers know which APK is installed.
+        binding.versionText.text = try {
+            val info = packageManager.getPackageInfo(packageName, 0)
+            "v${info.versionName} (${info.versionCode})"
+        } catch (e: Exception) {
+            ""
+        }
+
         binding.islandList.layoutManager = LinearLayoutManager(this)
         binding.islandList.adapter = islandAdapter
 

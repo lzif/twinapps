@@ -191,17 +191,6 @@ class ProvisioningManager(private val context: Context) {
         }
     }
 
-    private fun android.os.UserHandle.toUserId(): Int {
-        val p = android.os.Parcel.obtain()
-        try {
-            writeToParcel(p, 0)
-            p.setDataPosition(0)
-            return p.readInt()
-        } finally {
-            p.recycle()
-        }
-    }
-
     /**
      * Builds the managed-profile provisioning intent. Fire it and route the
      * result to [onManagedProvisioningResult].

@@ -141,15 +141,21 @@ class MainActivity : AppCompatActivity() {
     private fun refreshState() {
         toast("Refreshing...")
         Thread {
-            val hadStaleState = provisioningManager.checkAndFixStaleState()
+            val result = provisioningManager.checkAndFixStaleStateDetailed()
             runOnUiThread {
                 if (!isFinishing && !isDestroyed) {
                     refreshUi()
-                    if (hadStaleState) {
-                        toast("Stale state cleared. Set up the work profile again.")
-                    } else {
-                        toast("Refreshed")
+                    val msg = when (result) {
+                        ProvisioningManager.RefreshResult.STALE_CLEARED ->
+                            "Stale state cleared. Set up the work profile again."
+                        ProvisioningManager.RefreshResult.NO_STALE_STATE ->
+                            "State looks OK"
+                        ProvisioningManager.RefreshResult.SHIZUKU_UNAVAILABLE ->
+                            "Can't verify: Shizuku not running or not authorized"
+                        ProvisioningManager.RefreshResult.NOT_APPLICABLE ->
+                            "Nothing to refresh"
                     }
+                    toast(msg)
                 }
             }
         }.start()
@@ -186,10 +192,8 @@ class MainActivity : AppCompatActivity() {
         binding.destroyButton.visibility = productVisibility
         binding.devTestsButton.visibility = productVisibility
         binding.refreshButton.visibility = productVisibility
-        // Show Shizuku authorize button when needed (binder alive, not granted).
-        binding.shizukuButton.visibility = if (provisioned &&
-            ShizukuCompat.isBinderAlive() && !ShizukuCompat.isPermissionGranted()
-        ) View.VISIBLE else View.GONE
+        // Always show when provisioned — tapping gives diagnostics if Shizuku is down.
+        binding.shizukuButton.visibility = productVisibility
 
         if (provisioned) {
             binding.quietButton.text = getString(

@@ -84,18 +84,33 @@ class ProvisioningManager(private val context: Context) {
      * Returns true if stale state was found and cleared.
      * Tri-state: only resets on verified-absent, never on "couldn't check".
      */
-    fun checkAndFixStaleState(): Boolean {
-        if (!state.isDone() || isProfileOwner()) return false
+    /** Detailed outcome of a manual refresh. */
+    enum class RefreshResult {
+        STALE_CLEARED,
+        NO_STALE_STATE,
+        SHIZUKU_UNAVAILABLE,
+        NOT_APPLICABLE,
+    }
+
+    fun checkAndFixStaleState(): Boolean =
+        checkAndFixStaleStateDetailed() == RefreshResult.STALE_CLEARED
+
+    /**
+     * Checks for stale DONE state using Shizuku as ground truth.
+     * Tri-state: only resets on verified-absent, never on "couldn't check".
+     */
+    fun checkAndFixStaleStateDetailed(): RefreshResult {
+        if (!state.isDone() || isProfileOwner()) return RefreshResult.NOT_APPLICABLE
         return when (hasManagedProfileViaShizuku()) {
-            true -> false  // Profile exists, state is valid
+            true -> RefreshResult.NO_STALE_STATE  // Profile exists, state is valid
             false -> {
                 Log.w(TAG, "Manual refresh: verified no managed profile; resetting stale state")
                 state.reset()
-                true
+                RefreshResult.STALE_CLEARED
             }
             null -> {
                 Log.d(TAG, "Manual refresh: could not verify profile state; keeping DONE")
-                false
+                RefreshResult.SHIZUKU_UNAVAILABLE
             }
         }
     }

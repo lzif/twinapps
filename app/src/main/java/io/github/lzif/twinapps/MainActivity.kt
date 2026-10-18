@@ -175,13 +175,18 @@ class MainActivity : AppCompatActivity() {
      * used for local filtering; it is never displayed in full.
      */
     private fun setupPkgAutocomplete() {
-        val names = AppInventory(this).listInstalledApps()
-            .filter { !it.isSystemApp }
-            .map { it.packageName }
-            .sorted()
-        binding.pkgInput.setAdapter(
-            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, names)
-        )
+        // Off the main thread: PackageManager queries are slow with many apps.
+        Thread {
+            val names = AppInventory(this).listInstalledApps()
+                .filter { !it.isSystemApp }
+                .map { it.packageName }
+                .sorted()
+            runOnUiThread {
+                binding.pkgInput.setAdapter(
+                    ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, names)
+                )
+            }
+        }.start()
         binding.pkgInput.threshold = 2
     }
 

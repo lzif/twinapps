@@ -31,11 +31,27 @@
             android:text="@string/clone_section_title"
             android:textStyle="bold" />
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/cloneList"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false" />
+            android:orientation="horizontal">
+
+            <AutoCompleteTextView
+                android:id="@+id/pkgInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/pkg_input_hint"
+                android:inputType="textVisiblePassword"
+                android:imeOptions="actionDone"
+                android:importantForAutofill="no" />
+
+            <Button
+                android:id="@+id/cloneButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/clone_button" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/islandSectionTitle"

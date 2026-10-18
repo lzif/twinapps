@@ -17,5 +17,12 @@
     <string name="device_admin_label">TwinApps device admin</string>
     <string name="device_admin_description">Required to create and manage the work profile that hosts your cloned apps.</string>
     <string name="clone_section_title">Clone apps</string>
+    <string name="pkg_input_hint">Package name (e.g. com.whatsapp)</string>
+    <string name="clone_button">Clone</string>
+    <string name="pkg_input_empty">Enter a package name first</string>
+    <string name="clone_done">Cloned %1$s</string>
+    <string name="clone_failed">Clone failed: %1$s</string>
+    <string name="pkg_not_installed">%1$s is not installed on this device</string>
+    <string name="pkg_already_cloned">%1$s is already cloned</string>
     <string name="island_section_title">Island</string>
 </resources>

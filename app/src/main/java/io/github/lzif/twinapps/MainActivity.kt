@@ -1,9 +1,12 @@
 package io.github.lzif.twinapps
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -46,7 +49,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cloneStore: CloneStore
     private lateinit var freezeManager: FreezeManager
 
-    private val cloneAdapter = AppRowAdapter { row, action -> onCloneAction(row, action) }
     private val islandAdapter = AppRowAdapter { row, action -> onIslandAction(row, action) }
 
     /** Packages known-frozen on the personal side (optimistic; the profile side queries directly). */
@@ -76,14 +78,20 @@ class MainActivity : AppCompatActivity() {
         // Keep exactly one launcher entry visible per side.
         ProfileLauncherSetup.sync(this)
 
-        binding.cloneList.layoutManager = LinearLayoutManager(this)
-        binding.cloneList.adapter = cloneAdapter
         binding.islandList.layoutManager = LinearLayoutManager(this)
         binding.islandList.adapter = islandAdapter
 
         binding.setupButton.setOnClickListener {
             setupLauncher.launch(Intent(this, ProvisioningActivity::class.java))
         }
+        binding.cloneButton.setOnClickListener { cloneFromInput() }
+        binding.pkgInput.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                cloneFromInput()
+                true
+            } else false
+        }
+        setupPkgAutocomplete()
         binding.quietButton.setOnClickListener { toggleQuietMode() }
         binding.destroyButton.setOnClickListener { destroyProfile() }
         binding.devTestsButton.setOnClickListener {
@@ -116,7 +124,8 @@ class MainActivity : AppCompatActivity() {
         // Clone section only makes sense on the personal side.
         val cloneVisibility = if (provisioned && !inProfile) View.VISIBLE else View.GONE
         binding.cloneSectionTitle.visibility = cloneVisibility
-        binding.cloneList.visibility = cloneVisibility
+        binding.pkgInput.visibility = cloneVisibility
+        binding.cloneButton.visibility = cloneVisibility
         binding.islandSectionTitle.visibility = productVisibility
         binding.islandList.visibility = productVisibility
         binding.quietButton.visibility = productVisibility
@@ -128,24 +137,52 @@ class MainActivity : AppCompatActivity() {
                 if (profileUsers.isQuietModeEnabled()) R.string.quiet_disable
                 else R.string.quiet_enable
             )
-            if (!inProfile) refreshCloneList()
             refreshIslandList(inProfile)
         }
     }
 
-    /** Personal side: apps that can be cloned into the work profile. */
-    private fun refreshCloneList() {
-        val apps = AppInventory(this).listInstalledApps()
-            .filter { !it.isSystemApp }
-        cloneAdapter.rows = apps.map { entry ->
-            val cloned = cloneStore.contains(entry.packageName)
-            AppRow(
-                packageName = entry.packageName,
-                label = entry.label,
-                icon = iconOf(entry.packageName),
-                actions = if (cloned) emptyList() else listOf(RowAction("clone", "Clone")),
-            )
+    /** Personal side: clone the package named in the input field. */
+    private fun cloneFromInput() {
+        val pkg = binding.pkgInput.text.toString().trim()
+        if (pkg.isEmpty()) {
+            toast(getString(R.string.pkg_input_empty))
+            return
         }
+        if (cloneStore.contains(pkg)) {
+            toast(getString(R.string.pkg_already_cloned, pkg))
+            return
+        }
+        // Fail fast on typos: check locally before the Shizuku round-trip.
+        try {
+            packageManager.getPackageInfo(pkg, 0)
+        } catch (e: PackageManager.NameNotFoundException) {
+            toast(getString(R.string.pkg_not_installed, pkg))
+            return
+        }
+        when (val result = cloneManager.cloneToProfile(pkg)) {
+            is CloneResult.Success -> {
+                cloneStore.add(pkg)
+                binding.pkgInput.text.clear()
+                toast(getString(R.string.clone_done, pkg))
+                refreshUi()
+            }
+            is CloneResult.Failure -> toast(getString(R.string.clone_failed, result.reason))
+        }
+    }
+
+    /**
+     * Suggests installed package names as the user types. The list is only
+     * used for local filtering; it is never displayed in full.
+     */
+    private fun setupPkgAutocomplete() {
+        val names = AppInventory(this).listInstalledApps()
+            .filter { !it.isSystemApp }
+            .map { it.packageName }
+            .sorted()
+        binding.pkgInput.setAdapter(
+            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, names)
+        )
+        binding.pkgInput.threshold = 2
     }
 
     /** Island section: personal side reads the clone record, profile side lists its own apps. */
@@ -173,18 +210,6 @@ class MainActivity : AppCompatActivity() {
         )
         if (!local) actions.add(RowAction("remove", "Remove"))
         return AppRow(packageName, label, iconOf(packageName), actions)
-    }
-
-    private fun onCloneAction(row: AppRow, actionId: String) {
-        if (actionId != "clone") return
-        when (val result = cloneManager.cloneToProfile(row.packageName)) {
-            is CloneResult.Success -> {
-                cloneStore.add(row.packageName)
-                toast("Cloned ${row.label}")
-                refreshUi()
-            }
-            is CloneResult.Failure -> toast("Clone failed: ${result.reason}")
-        }
     }
 
     private fun onIslandAction(row: AppRow, actionId: String) {

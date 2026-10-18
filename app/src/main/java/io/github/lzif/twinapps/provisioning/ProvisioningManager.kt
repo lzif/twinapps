@@ -52,17 +52,10 @@ class ProvisioningManager(private val context: Context) {
      */
     fun isProvisioned(): Boolean {
         if (state.isDone()) {
-            // Verify the profile actually exists when we can. The DONE flag
-            // is set optimistically on provisioning result; if the system
-            // failed to create the profile (e.g. provisioning crashed),
-            // we'd otherwise be stuck showing "ready" with no profile.
-            // Shizuku's `pm list users` is the ground truth here because
-            // UserManager.getUserProfiles() is unreliable on some devices.
-            if (!isProfileOwner() && isShizukuAvailable() && !hasManagedProfileViaShizuku()) {
-                Log.w(TAG, "DONE but Shizuku sees no managed profile; resetting stale state")
-                state.reset()
-                return false
-            }
+            // DONE is trusted here. Stale-state verification (via Shizuku)
+            // lives in checkAndFixStaleState(), called from a background
+            // thread by the manual refresh — never on the main thread, and
+            // only on verified-absent (not on "couldn't check").
             return true
         }
         if (!isProfileOwner() && !destroyRecentlyRequested() && hasManagedProfile()) {
@@ -89,31 +82,33 @@ class ProvisioningManager(private val context: Context) {
     /**
      * Checks for stale DONE state using Shizuku as ground truth.
      * Returns true if stale state was found and cleared.
+     * Tri-state: only resets on verified-absent, never on "couldn't check".
      */
     fun checkAndFixStaleState(): Boolean {
         if (!state.isDone() || isProfileOwner()) return false
-        if (!isShizukuAvailable()) return false
-        if (!hasManagedProfileViaShizuku()) {
-            Log.w(TAG, "Manual refresh: DONE but no managed profile via Shizuku; resetting")
-            state.reset()
-            return true
-        }
-        return false
-    }
-
-    private fun isShizukuAvailable(): Boolean {
-        return try {
-            io.github.lzif.twinapps.clone.ShizukuCompat.isUsable()
-        } catch (e: Exception) {
-            false
+        return when (hasManagedProfileViaShizuku()) {
+            true -> false  // Profile exists, state is valid
+            false -> {
+                Log.w(TAG, "Manual refresh: verified no managed profile; resetting stale state")
+                state.reset()
+                true
+            }
+            null -> {
+                Log.d(TAG, "Manual refresh: could not verify profile state; keeping DONE")
+                false
+            }
         }
     }
 
-    private fun hasManagedProfileViaShizuku(): Boolean {
+    /**
+     * Tri-state Shizuku check: true = managed profile found,
+     * false = verified absent, null = couldn't verify (Shizuku down, pm failed).
+     */
+    private fun hasManagedProfileViaShizuku(): Boolean? {
         val result = io.github.lzif.twinapps.clone.ShizukuCompat.newProcess(
             arrayOf("pm", "list", "users")
-        ) ?: return false
-        if (result.exitCode != 0) return false
+        ) ?: return null
+        if (result.exitCode != 0) return null
         val regex = Regex("""UserInfo\{(\d+):[^:]*:([0-9a-fA-F]+)\}""")
         val myId = Process.myUserHandle().toUserId()
         return regex.findAll(result.stdout).any { match ->
